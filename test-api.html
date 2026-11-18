@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Testing TheSportsDB API with CORS Proxies</h1>
+    <div id="results"></div>
+    <script>
+        async function testPlayer(name) {
+            const results = document.getElementById('results');
+            const encodedName = encodeURIComponent(name);
+            const proxyUrl = `https://thingproxy.freeboard.io/fetch/https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${encodedName}`;
+            
+            results.innerHTML += `<p>Testing: ${name}... URL: ${proxyUrl}</p>`;
+            
+            try {
+                const response = await axios.get(proxyUrl);
+                if (response.data?.player && response.data.player.length > 0) {
+                    const player = response.data.player[0];
+                    results.innerHTML += `<p style="color: green;">✅ SUCCESS for ${name}: Found image - ${player.strThumb}</p>`;
+                    results.innerHTML += `<img src="${player.strThumb}" width="100" /><br/>`;
+                } else {
+                    results.innerHTML += `<p style="color: red;">❌ No player found for ${name}</p>`;
+                }
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">❌ ERROR for ${name}: ${error.message}</p>`;
+            }
+        }
+
+        // Test the same players from your app
+        window.onload = () => {
+            testPlayer("Ludovic Ajorque");
+            testPlayer("Mama Baldé");
+            testPlayer("Axel Camblan");
+        };
+    </script>
+</body>
+</html>

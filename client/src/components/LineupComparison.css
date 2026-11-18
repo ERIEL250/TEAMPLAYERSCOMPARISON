@@ -1,0 +1,144 @@
+.lineup-comparison-container {
+  background: #1a202c;
+  border-radius: 12px;
+  padding: 1.5rem;
+  color: #ffffff;
+  max-width: 1400px;
+  margin: 2rem auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.comparison-title {
+  text-align: center;
+  margin: 0 0 2rem 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.comparison-pitches {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 1200px) {
+  .comparison-pitches {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.team-pitch-wrapper {
+  background: #2d3748;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #4a5568;
+}
+
+.team-header-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.team-header-info p {
+  margin: 0.25rem 0 0 0;
+  color: #a0aec0;
+  font-size: 0.9rem;
+}
+
+.position-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.position-stats .stat {
+  background: #1a202c;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Comparison summary */
+.comparison-summary {
+  background: #2d3748;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.comparison-summary h3 {
+  margin: 0 0 1.5rem 0;
+  text-align: center;
+  font-size: 1.3rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.summary-card {
+  background: #1a202c;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.summary-card h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #4a5568;
+}
+
+.summary-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summary-card li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #2d3748;
+  color: #e2e8f0;
+}
+
+.summary-card li:last-child {
+  border-bottom: none;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .lineup-comparison-container {
+    padding: 1rem;
+    margin: 1rem;
+  }
+
+  .team-pitch-wrapper {
+    padding: 1rem;
+  }
+
+  .comparison-title {
+    font-size: 1.4rem;
+  }
+}
