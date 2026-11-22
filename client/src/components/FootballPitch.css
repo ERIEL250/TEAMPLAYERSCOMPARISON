@@ -140,6 +140,47 @@
   z-index: 10;
 }
 
+.pitch-player-slot.drop-target,
+.pitch-player-slot.drag-over {
+  background: rgba(var(--color-green-500-rgb), 0.2);
+  border: 2px dashed var(--color-green-500);
+  border-radius: var(--radius-md);
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 0 20px rgba(var(--color-green-500-rgb), 0.4);
+}
+
+.bench-slot.drag-over {
+  background: rgba(var(--color-green-500-rgb), 0.15);
+  border: 2px dashed var(--color-green-500);
+  transform: translateY(-2px);
+  box-shadow: 0 0 15px rgba(var(--color-green-500-rgb), 0.3);
+}
+
+.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  cursor: grabbing !important;
+}
+
+.draggable-player {
+  cursor: grab;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.draggable-player:active {
+  cursor: grabbing;
+}
+
+.draggable-player.substitute {
+  width: 100%;
+}
+
+.bench-slots .pitch-player-slot {
+  position: relative;
+  transform: none;
+  width: 100%;
+}
+
 .pitch-player-slot.selectable {
   cursor: pointer;
 }

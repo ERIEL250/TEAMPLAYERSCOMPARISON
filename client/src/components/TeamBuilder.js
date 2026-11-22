@@ -13,23 +13,20 @@ const TeamBuilder = ({
   onCancel,
   savedLineup = null,
 }) => {
-  const [activeTab, setActiveTab] = useState('available'); // available, starting, substitutes
+  const [activeTab, setActiveTab] = useState('available');
   const [selectedFormation, setSelectedFormation] = useState('4-3-3');
-  const [startingPlayers, setStartingPlayers] = useState([]); // Array of { positionId, player }
-  const [substitutePlayers, setSubstitutePlayers] = useState([]); // Array of players
-  const [selectedSlot, setSelectedSlot] = useState(null); // Currently selected slot to fill
+  const [startingPlayers, setStartingPlayers] = useState([]);
+  const [substitutePlayers, setSubstitutePlayers] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  // Drag and drop state
   const [draggedPlayer, setDraggedPlayer] = useState(null);
   const [dragOverSlot, setDragOverSlot] = useState(null);
-  // Player images are now managed centrally by the PlayerImage component and sportsDBService
-  // TeamBuilder is always editable since it's used to create/edit lineups
   const isEditable = true;
 
   const formations = getAvailableFormations();
   const formationData = getFormation(selectedFormation);
 
-  // Load saved lineup if provided
   useEffect(() => {
     if (savedLineup) {
       setSelectedFormation(savedLineup.formation || '4-3-3');
@@ -38,7 +35,6 @@ const TeamBuilder = ({
     }
   }, [savedLineup]);
 
-  // Get all players that are already selected (either starting or substitute)
   const selectedPlayerIds = useMemo(() => {
     const ids = new Set();
     startingPlayers.forEach((sp) => {
@@ -48,7 +44,6 @@ const TeamBuilder = ({
     return ids;
   }, [startingPlayers, substitutePlayers]);
 
-  // Filter available players (not already selected)
   const availablePlayers = useMemo(() => {
     return allPlayers.filter(
       (player) =>
@@ -57,22 +52,14 @@ const TeamBuilder = ({
     );
   }, [allPlayers, selectedPlayerIds, searchQuery]);
 
-  // Counters for UI display
   const startingCount = startingPlayers.filter((sp) => sp.player).length;
   const substituteCount = substitutePlayers.length;
   const canAddStarter = startingCount < 11;
-
-  // Check if lineup is complete
+  const canAddSubstitute = substituteCount < 5;
   const isLineupComplete = startingCount === 11;
 
-  // Manual image upload is now handled centrally by the PlayerImage component
-
-  // Player images are now automatically loaded by the PlayerImage component when rendered
-
-  // Drag and drop handlers
   const handleDragStart = useCallback(
     (player, sourceType, sourceIndex) => {
-      // Store the source position ID if dragging from a starting slot
       let sourcePositionId = null;
       if (sourceType === 'starting' && startingPlayers[sourceIndex]) {
         sourcePositionId = startingPlayers[sourceIndex].positionId;
@@ -102,7 +89,6 @@ const TeamBuilder = ({
 
       const { player, sourceType, sourceIndex } = draggedPlayer;
 
-      // First check if target slot is occupied and confirm swap if needed
       const isStartingTarget = !targetSlot.startsWith('sub-');
       let isOccupied = false;
       let existingPlayer = null;
@@ -123,7 +109,6 @@ const TeamBuilder = ({
         }
       }
 
-      // If slot is occupied, ask user for confirmation
       if (isOccupied && existingPlayer) {
         const shouldSwap = window.confirm(
           `${targetSlot.startsWith('sub-') ? 'Substitute slot' : 'Starting slot'} is already occupied by ${existingPlayer.name}.\nDo you want to swap ${player.name} with ${existingPlayer.name}?`
@@ -135,33 +120,26 @@ const TeamBuilder = ({
         }
       }
 
-      // Handle drop onto starting slot
       if (isStartingTarget) {
         let newStarters = [...startingPlayers];
 
-        // Remove the dragged player from their current position if they were already in starting lineup
         if (sourceType === 'starting') {
           newStarters.splice(sourceIndex, 1);
         } else if (sourceType === 'substitute') {
-          // Remove from substitutes
           const newSubs = [...substitutePlayers];
           newSubs.splice(sourceIndex, 1);
           setSubstitutePlayers(newSubs);
         }
 
-        // Check if target slot has an existing player to swap
         const existingTargetIndex = newStarters.findIndex(
           (sp) => sp.positionId === targetSlot
         );
         if (existingTargetIndex >= 0) {
-          // The existing player at target slot needs to go to the source if dragging from another starting slot
           if (sourceType === 'starting') {
-            // We were dragging from another starting slot, swap positions
             const sourceOriginalIndex = newStarters.findIndex(
               (sp) => sp.positionId === draggedPlayer.sourcePositionId
             );
             if (sourceOriginalIndex >= 0) {
-              // Actually add the existing player to the source position
               const sourceSlot = startingPlayers[sourceIndex].positionId;
               const existingPlayerAtTarget =
                 newStarters[existingTargetIndex].player;
@@ -174,36 +152,28 @@ const TeamBuilder = ({
               });
             }
           } else {
-            // Just replace the existing player - they return to available pool
             newStarters = newStarters.filter(
               (sp) => sp.positionId !== targetSlot
             );
           }
         }
 
-        // Add the dragged player to the new target slot
         newStarters.push({ positionId: targetSlot, player });
         setStartingPlayers(newStarters);
       } else {
-        // Handle drop onto substitute slot
         const subIndex = parseInt(targetSlot.split('-')[1]);
         if (subIndex >= 0 && subIndex < 5) {
           let newSubs = [...substitutePlayers];
           let newStarters = [...startingPlayers];
 
-          // Remove from source
           if (sourceType === 'starting') {
-            // Remove from starting lineup
             newStarters.splice(sourceIndex, 1);
             setStartingPlayers(newStarters);
           } else if (sourceType === 'substitute') {
-            // Remove from current substitute position
             newSubs.splice(sourceIndex, 1);
           }
 
-          // Check if there's an existing player to swap in this substitute slot
           if (newSubs[subIndex]) {
-            // If we're swapping between substitutes, handle the swap
             if (sourceType === 'substitute') {
               const existingPlayer = newSubs[subIndex];
               newSubs.splice(subIndex, 1);
@@ -213,12 +183,10 @@ const TeamBuilder = ({
                 existingPlayer
               );
             } else {
-              // Remove existing player to make room
               newSubs.splice(subIndex, 1);
             }
           }
 
-          // Add the dragged player to the new substitute slot
           newSubs.splice(subIndex, 0, player);
           setSubstitutePlayers(newSubs.slice(0, 5));
         }
@@ -230,41 +198,29 @@ const TeamBuilder = ({
     [draggedPlayer, startingPlayers, substitutePlayers]
   );
 
-  // Handle selecting a player to assign to a slot
-  const assignPlayerToSlot = (player) => {
-    if (!selectedSlot) return;
+  const assignPlayerToSlot = useCallback((player, slot = selectedSlot) => {
+    if (!slot) return;
 
-    // Check if it's a starting slot or substitute slot
-    if (selectedSlot.startsWith('sub-')) {
-      const subIndex = parseInt(selectedSlot.split('-')[1]);
+    if (slot.startsWith('sub-')) {
+      const subIndex = parseInt(slot.split('-')[1]);
       if (subIndex >= 0 && subIndex < 5) {
         const newSubs = [...substitutePlayers];
-        // If slot already has a player, remove them first
         if (newSubs[subIndex]) {
-          const existingId = newSubs[subIndex].id;
-          const playerToReturn = allPlayers.find((p) => p.id === existingId);
-          if (playerToReturn) {
-            // Remove existing player from substitutes
-            newSubs.splice(subIndex, 1);
-          }
+          newSubs.splice(subIndex, 1);
         }
-        // Add new player to substitute slot
         newSubs.splice(subIndex, 0, player);
-        // Ensure we only keep max 5 substitutes
         setSubstitutePlayers(newSubs.slice(0, 5));
       }
     } else {
-      // It's a starting slot - check if we can add another starter
       if (
         !canAddStarter &&
-        !startingPlayers.find((sp) => sp.positionId === selectedSlot)
+        !startingPlayers.find((sp) => sp.positionId === slot)
       ) {
-        return; // Cannot add more than 11 starters
+        return;
       }
 
-      // Check if this slot already has a player, if so remove them
       const existingIndex = startingPlayers.findIndex(
-        (sp) => sp.positionId === selectedSlot
+        (sp) => sp.positionId === slot
       );
       const newStarters = [...startingPlayers];
 
@@ -272,16 +228,39 @@ const TeamBuilder = ({
         newStarters.splice(existingIndex, 1);
       }
 
-      // Add the new player to this slot
-      newStarters.push({ positionId: selectedSlot, player });
+      newStarters.push({ positionId: slot, player });
       setStartingPlayers(newStarters);
     }
 
-    setSelectedSlot(null); // Clear selection after assignment
-  };
+    setSelectedSlot(null);
+    setSelectedPlayer(null);
+  }, [selectedSlot, substitutePlayers, canAddStarter, startingPlayers]);
 
-  // Remove a player from a slot
-  const removePlayerFromSlot = (positionId, isSubstitute = false) => {
+  const addToStartingLineup = useCallback(() => {
+    if (!selectedPlayer) return;
+
+    const emptySlot = formationData.positions.find(
+      (slot) => !startingPlayers.find((sp) => sp.positionId === slot.id)
+    );
+
+    if (emptySlot) {
+      assignPlayerToSlot(selectedPlayer, emptySlot.id);
+    }
+  }, [selectedPlayer, formationData.positions, startingPlayers, assignPlayerToSlot]);
+
+  const addToSubstitutes = useCallback(() => {
+    if (!selectedPlayer || !canAddSubstitute) return;
+
+    const emptySubIndex = substitutePlayers.length;
+    if (emptySubIndex < 5) {
+      const newSubs = [...substitutePlayers];
+      newSubs.splice(emptySubIndex, 0, selectedPlayer);
+      setSubstitutePlayers(newSubs.slice(0, 5));
+      setSelectedPlayer(null);
+    }
+  }, [selectedPlayer, canAddSubstitute, substitutePlayers]);
+
+  const removePlayerFromSlot = useCallback((positionId, isSubstitute = false) => {
     if (isSubstitute) {
       const subIndex = parseInt(positionId.split('-')[1]);
       const newSubs = [...substitutePlayers];
@@ -293,31 +272,34 @@ const TeamBuilder = ({
       );
       setStartingPlayers(newStarters);
     }
-  };
+  }, [startingPlayers, substitutePlayers]);
 
-  // Handle pitch slot click
-  const handlePitchSlotClick = (slotId, currentPlayer) => {
+  const handlePitchSlotClick = useCallback((slotId, currentPlayer) => {
     if (currentPlayer) {
-      // If slot has a player, offer to remove them
       const isSub = slotId.startsWith('sub-');
       if (window.confirm(`Remove ${currentPlayer.name} from this slot?`)) {
         removePlayerFromSlot(slotId, isSub);
       }
     } else {
-      // If slot is empty, select it to assign a player
       setSelectedSlot(slotId);
-      setActiveTab('available'); // Switch to available players tab
+      setSelectedPlayer(null);
+      setActiveTab('available');
     }
-  };
+  }, [removePlayerFromSlot]);
 
-  // Pass the actual startingPlayers array (with positionId links) to FootballPitch
-  // DO NOT filter or transform - FootballPitch needs the { positionId, player } structure
+  const handlePlayerCardClick = useCallback((player) => {
+    if (selectedSlot) {
+      assignPlayerToSlot(player);
+    } else {
+      setSelectedPlayer(selectedPlayer?.id === player.id ? null : player);
+    }
+  }, [selectedSlot, selectedPlayer, assignPlayerToSlot]);
+
   const pitchStartingPlayers = useMemo(() => {
     return startingPlayers;
   }, [startingPlayers]);
 
-  // Finish and save the lineup
-  const handleFinishLineup = () => {
+  const handleFinishLineup = useCallback(() => {
     if (!isLineupComplete) {
       const missingSlots = formationData.positions
         .filter(
@@ -331,7 +313,6 @@ const TeamBuilder = ({
       return;
     }
 
-    // Save the lineup data
     const lineupData = {
       teamId: team.id,
       teamName: team.name,
@@ -342,10 +323,9 @@ const TeamBuilder = ({
     };
 
     onSave(lineupData);
-  };
+  }, [isLineupComplete, formationData.positions, startingPlayers, team, selectedFormation, substitutePlayers, onSave]);
 
-  // Reset the entire lineup
-  const handleResetLineup = () => {
+  const handleResetLineup = useCallback(() => {
     if (
       window.confirm(
         'Are you sure you want to reset your entire lineup? This cannot be undone.'
@@ -354,8 +334,9 @@ const TeamBuilder = ({
       setStartingPlayers([]);
       setSubstitutePlayers([]);
       setSelectedSlot(null);
+      setSelectedPlayer(null);
     }
-  };
+  }, []);
 
   return (
     <div className="team-builder-container">
@@ -385,7 +366,6 @@ const TeamBuilder = ({
         </div>
       </div>
 
-      {/* Selection counters with status messages */}
       <div className="selection-counters">
         <div
           className={`counter ${startingCount === 11 ? 'complete' : 'incomplete'}`}
@@ -399,7 +379,6 @@ const TeamBuilder = ({
           <span className="counter-label">Substitutes:</span>
           <span className="counter-value">{substituteCount}/5</span>
         </div>
-        {/* Status message that changes based on selection state */}
         <div
           className={`lineup-status ${isLineupComplete ? 'ready' : 'incomplete'}`}
         >
@@ -424,10 +403,30 @@ const TeamBuilder = ({
         </div>
       </div>
 
+      {selectedPlayer && (
+        <div className="selected-player-actions">
+          <div className="selected-player-info">
+            <span>Selected: <strong>{selectedPlayer.name}</strong></span>
+          </div>
+          <button
+            className="action-btn add-starting-btn"
+            onClick={addToStartingLineup}
+            disabled={!canAddStarter}
+          >
+            Add to Starting Lineup
+          </button>
+          <button
+            className="action-btn add-sub-btn"
+            onClick={addToSubstitutes}
+            disabled={!canAddSubstitute}
+          >
+            Add to Substitutes
+          </button>
+        </div>
+      )}
+
       <div className="builder-content">
-        {/* Left panel: Pitch + Fixed Substitutes (always visible, not scrollable) */}
         <div className="left-panel">
-          {/* Pitch visualization */}
           <div className="pitch-section">
             <FootballPitch
               formation={selectedFormation}
@@ -435,10 +434,15 @@ const TeamBuilder = ({
               substitutes={substitutePlayers}
               onPlayerSelect={handlePitchSlotClick}
               isEditable={isEditable}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              dragOverSlot={dragOverSlot}
+              onPlayerDragStart={handleDragStart}
+              onPlayerDragEnd={handleDragEnd}
             />
           </div>
 
-          {/* Fixed substitutes section - always visible under pitch */}
           <div className="substitutes-section-fixed">
             <h3>🔄 Substitutes ({substitutePlayers.length}/5)</h3>
             <div className="substitutes-grid-fixed">
@@ -499,7 +503,6 @@ const TeamBuilder = ({
           </div>
         </div>
 
-        {/* Right panel: Scrollable Players panel with tabs */}
         <div className="right-panel">
           <div className="players-panel">
             <div className="tab-header">
@@ -558,16 +561,14 @@ const TeamBuilder = ({
                     availablePlayers.map((player, index) => (
                       <div
                         key={player.id}
-                        className={`available-player-card ${selectedSlot ? 'selectable' : ''} ${draggedPlayer?.player?.id === player.id ? 'dragging' : ''}`}
+                        className={`available-player-card ${selectedSlot ? 'selectable' : ''} ${selectedPlayer?.id === player.id ? 'selected' : ''} ${draggedPlayer?.player?.id === player.id ? 'dragging' : ''}`}
                         draggable={true}
                         onDragStart={(e) => {
                           e.dataTransfer.effectAllowed = 'move';
                           handleDragStart(player, 'available', index);
                         }}
                         onDragEnd={handleDragEnd}
-                        onClick={() =>
-                          selectedSlot && assignPlayerToSlot(player)
-                        }
+                        onClick={() => handlePlayerCardClick(player)}
                       >
                         <div className="player-image-container">
                           <PlayerImage
@@ -717,7 +718,6 @@ const TeamBuilder = ({
         </div>
       </div>
 
-      {/* Action buttons */}
       <div className="builder-actions">
         <button className="reset-btn" onClick={handleResetLineup}>
           Reset Lineup

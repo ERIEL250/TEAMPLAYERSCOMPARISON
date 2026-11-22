@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+﻿import React, { useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useAppContext } from './contexts/AppContext';
 import { competitionService, teamService } from './services/apiService';
 import { groupPlayersByPosition, filterPlayers } from './utils/positionUtils';
@@ -125,18 +125,44 @@ function App() {
           dispatch({ type: 'SET_SELECTED_PLAYERS_A', payload: new Set() });
           dispatch({ type: 'SET_PLAYER_SEARCH_A', payload: '' });
           dispatch({ type: 'SET_POSITION_FILTER_A', payload: 'ALL' });
-          sportsDBService.bulkFetchAllPlayerImages(squad, (playerId, url) => {
-            console.log(`Loaded image for player ${playerId}:`, url);
-          });
         } else {
           dispatch({ type: 'SET_TEAM_B', payload: teamData });
           dispatch({ type: 'SET_TEAM_B_PLAYERS', payload: squad });
           dispatch({ type: 'SET_SELECTED_PLAYERS_B', payload: new Set() });
           dispatch({ type: 'SET_PLAYER_SEARCH_B', payload: '' });
           dispatch({ type: 'SET_POSITION_FILTER_B', payload: 'ALL' });
-          sportsDBService.bulkFetchAllPlayerImages(squad, (playerId, url) => {
-            console.log(`Loaded image for player ${playerId}:`, url);
-          });
+        }
+
+        sportsDBService.bulkFetchAllPlayerImages(squad, (playerId, url) => {
+          console.log(`Loaded image for player ${playerId}:`, url);
+        });
+
+        try {
+          const footballApiSportsData =
+            await sportsDBService.fetchTeamPlayersFromFootballApiSports(teamId);
+          if (footballApiSportsData?.response?.[0]?.players) {
+            const players = footballApiSportsData.response[0].players;
+            console.log(
+              `Found ${players.length} players with photos from Football API Sports`
+            );
+
+            players.forEach((playerData) => {
+              if (playerData.player?.id && playerData.player?.photo) {
+                const cacheKey = `football_api_sports_player_photo_${playerData.player.id}`;
+                sportsDBService.cachedImages[cacheKey] = {
+                  url: playerData.player.photo,
+                  timestamp: Date.now(),
+                  source: 'football_api_sports_squad',
+                };
+              }
+            });
+            sportsDBService.saveCacheToStorage();
+          }
+        } catch (footballApiError) {
+          console.warn(
+            'Football API Sports squad fetch failed, falling back to individual lookups:',
+            footballApiError
+          );
         }
       } catch (err) {
         dispatch({
@@ -292,7 +318,7 @@ function App() {
   return (
     <div className={`app ${state.darkMode ? 'dark-mode' : ''}`}>
       <header className="header">
-        <h1>⚽ Football Team Comparison</h1>
+        <h1> Football Team Comparison</h1>
         <div className="header-actions">
           <ShareLineupButton />
           <DarkModeToggle />
@@ -414,12 +440,12 @@ function App() {
                 <h3>Team A: {teamA.name}</h3>
                 {teamALineup ? (
                   <div className="lineup-status">
-                    <span className="status-complete">✅ Lineup complete</span>
+                    <span className="status-complete"> Lineup complete</span>
                     <span>Formation: {teamALineup.formation}</span>
                   </div>
                 ) : (
                   <span className="status-incomplete">
-                    ❌ No lineup created yet
+                    No lineup created yet
                   </span>
                 )}
                 <button
@@ -440,12 +466,12 @@ function App() {
                 <h3>Team B: {teamB.name}</h3>
                 {teamBLineup ? (
                   <div className="lineup-status">
-                    <span className="status-complete">✅ Lineup complete</span>
+                    <span className="status-complete"> Lineup complete</span>
                     <span>Formation: {teamBLineup.formation}</span>
                   </div>
                 ) : (
                   <span className="status-incomplete">
-                    ❌ No lineup created yet
+                    No lineup created yet
                   </span>
                 )}
                 <button
@@ -481,7 +507,7 @@ function App() {
                   })
                 }
               >
-                🌟 Build Best XI from Both Teams
+                Build Best XI from Both Teams
               </button>
             )}
 
@@ -636,10 +662,10 @@ function App() {
               <div className="score-divider">
                 <div className="verdict">
                   {teamASelected > teamBSelected
-                    ? '🏆 Team A has more selected players!'
+                    ? ' Team A has more selected players!'
                     : teamBSelected > teamASelected
-                      ? '🏆 Team B has more selected players!'
-                      : '🤝 Equal number of selected players!'}
+                      ? ' Team B has more selected players!'
+                      : ' Equal number of selected players!'}
                 </div>
               </div>
               <div className="team-score team-b-score">

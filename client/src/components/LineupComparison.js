@@ -1,10 +1,12 @@
-import React from 'react';
-import FootballPitch from './FootballPitch';
+import React, { useState, useCallback } from 'react';
+import FootballPitchDnD from './FootballPitchDnD';
 import TeamCrest from './TeamCrest';
 import './LineupComparison.css';
 
-const LineupComparison = ({ teamALineup, teamBLineup, teamA, teamB }) => {
-  // Calculate position distribution for each team
+const LineupComparison = ({ teamALineup: initialTeamALineup, teamBLineup: initialTeamBLineup, teamA, teamB }) => {
+  const [teamALineup, setTeamALineup] = useState(initialTeamALineup);
+  const [teamBLineup, setTeamBLineup] = useState(initialTeamBLineup);
+
   const getPositionDistribution = (lineup) => {
     if (!lineup) return { GK: 0, DEF: 0, MID: 0, FWD: 0 };
 
@@ -43,22 +45,35 @@ const LineupComparison = ({ teamALineup, teamBLineup, teamA, teamB }) => {
   const teamADist = getPositionDistribution(teamALineup);
   const teamBDist = getPositionDistribution(teamBLineup);
 
-  // Pass through the correct starting players format that FootballPitch expects - keep { positionId, player } structure
   const formatStartingPlayers = (lineup) => {
     if (!lineup) return [];
-    // Return the full structure with positionId and player, not just the player object
     return lineup.startingPlayers.filter((sp) => sp.positionId && sp.player);
   };
 
   const teamAStarting = formatStartingPlayers(teamALineup);
   const teamBStarting = formatStartingPlayers(teamBLineup);
 
+  const handleLineupChange = useCallback(({ teamId, startingPlayers, substitutes }) => {
+    if (teamId === 'teamA') {
+      setTeamALineup(prev => ({
+        ...prev,
+        startingPlayers,
+        substitutePlayers: substitutes,
+      }));
+    } else if (teamId === 'teamB') {
+      setTeamBLineup(prev => ({
+        ...prev,
+        startingPlayers,
+        substitutePlayers: substitutes,
+      }));
+    }
+  }, []);
+
   return (
     <div className="lineup-comparison-container">
       <h2 className="comparison-title">Team Lineup Comparison</h2>
 
       <div className="comparison-pitches">
-        {/* Team A Pitch */}
         <div className="team-pitch-wrapper">
           <div className="team-header">
             <TeamCrest team={teamA} size={48} />
@@ -75,15 +90,15 @@ const LineupComparison = ({ teamALineup, teamBLineup, teamA, teamB }) => {
             <div className="stat">FWD: {teamADist.FWD}</div>
           </div>
 
-          <FootballPitch
+          <FootballPitchDnD
             formation={teamALineup?.formation || '4-3-3'}
             startingPlayers={teamAStarting}
             substitutes={teamALineup?.substitutePlayers || []}
-            isEditable={false}
+            teamId="teamA"
+            onLineupChange={handleLineupChange}
           />
         </div>
 
-        {/* Team B Pitch */}
         <div className="team-pitch-wrapper">
           <div className="team-header">
             <TeamCrest team={teamB} size={48} />
@@ -100,16 +115,16 @@ const LineupComparison = ({ teamALineup, teamBLineup, teamA, teamB }) => {
             <div className="stat">FWD: {teamBDist.FWD}</div>
           </div>
 
-          <FootballPitch
+          <FootballPitchDnD
             formation={teamBLineup?.formation || '4-3-3'}
             startingPlayers={teamBStarting}
             substitutes={teamBLineup?.substitutePlayers || []}
-            isEditable={false}
+            teamId="teamB"
+            onLineupChange={handleLineupChange}
           />
         </div>
       </div>
 
-      {/* Summary section */}
       <div className="comparison-summary">
         <h3>Squad Summary</h3>
         <div className="summary-grid">

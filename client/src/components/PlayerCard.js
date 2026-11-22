@@ -13,7 +13,7 @@ const PlayerCard = ({ player, isSelected, onToggle, isTeamA }) => {
         onChange={() => onToggle(player.id, isTeamA)}
         className="player-checkbox"
       />
-      <PlayerImage player={player} size={56} manualUploadEnabled={true} />
+      <PlayerImage player={player} size="medium" showUploadButton={true} />
       <div className="player-info">
         <h4 className="player-name">{player.name}</h4>
         <p className="player-position">

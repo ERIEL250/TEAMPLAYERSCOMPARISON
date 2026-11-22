@@ -1,227 +1,169 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useAppContext } from '../contexts/AppContext';
-import sportsDBService, {
-  DEFAULT_PLAYER_IMAGE,
-  IMAGE_CONFIG,
-} from '../services/sportsDBService';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
+import sportsDBService, { DEFAULT_PLAYER_IMAGE } from '../services/sportsDBService';
 import './PlayerImage.css';
 
 const PlayerImage = ({
   player,
-  size = 64,
+  size = 'medium',
+  onImageLoaded,
   className = '',
-  manualUploadEnabled = true,
-  onImageLoaded = null,
+  showUploadButton = true,
+  manualUploadEnabled,
+  fallbackUrl,
+  style = {},
 }) => {
-  const { state, dispatch } = useAppContext();
+  const [imageUrl, setImageUrl] = useState(fallbackUrl || DEFAULT_PLAYER_IMAGE);
   const [isLoading, setIsLoading] = useState(true);
-  const [imageUrl, setImageUrl] = useState(DEFAULT_PLAYER_IMAGE);
+  const [isUploading, setIsUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  const [fallbackBroken, setFallbackBroken] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
-
+  const loadTimeoutRef = useRef(null);
   const playerId = player?.id;
-  const displayName =
-    `${player?.firstName || ''} ${player?.lastName || ''}`.trim() ||
-    player?.name ||
-    'Player';
+
+  const actualShowUpload = showUploadButton || manualUploadEnabled;
+
+  const getSizeClass = () => {
+    if (typeof size === 'number') {
+      if (size <= 40) return 'small';
+      if (size <= 60) return 'medium';
+      if (size <= 100) return 'large';
+      return 'x-large';
+    }
+    return size;
+  };
+
+  const loadImage = useCallback(() => {
+    if (!player || player.id == null) {
+      setIsLoading(false);
+      setImageUrl(fallbackUrl || DEFAULT_PLAYER_IMAGE);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+    loadTimeoutRef.current = setTimeout(async () => {
+      try {
+        const url = await sportsDBService.fetchPlayerImage(player);
+        setImageUrl(url);
+        if (onImageLoaded) onImageLoaded(player.id, url);
+      } catch (err) {
+        console.warn('Failed to load player image:', err);
+        setError(err.message || 'Failed to load image');
+        setImageUrl(fallbackUrl || DEFAULT_PLAYER_IMAGE);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 50);
+  }, [player, fallbackUrl, onImageLoaded]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadImage = async () => {
-      setIsLoading(true);
-      setFallbackBroken(false);
-      setShowUpload(false);
-      setImageUrl(DEFAULT_PLAYER_IMAGE);
-
-      if (!player || playerId == null) {
-        setIsLoading(false);
-        setShowUpload(true);
-        return;
-      }
-
-      try {
-        const contextCachedUrl = state.playerImageCache[String(playerId)];
-        const localCachedUrl = sportsDBService.getCachedImage(playerId);
-        const url =
-          contextCachedUrl ||
-          localCachedUrl ||
-          (await sportsDBService.fetchPlayerImage(player));
-        if (cancelled) return;
-
-        const resolvedUrl = url || DEFAULT_PLAYER_IMAGE;
-        setImageUrl(resolvedUrl);
-        setShowUpload(resolvedUrl === DEFAULT_PLAYER_IMAGE);
-        setIsLoading(false);
-        if (onImageLoaded) onImageLoaded(playerId, resolvedUrl);
-      } catch (error) {
-        if (cancelled) return;
-        console.warn(`Could not load image for ${displayName}:`, error);
-        setImageUrl(DEFAULT_PLAYER_IMAGE);
-        setShowUpload(true);
-        setIsLoading(false);
-      }
-    };
-
     loadImage();
     return () => {
-      cancelled = true;
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
     };
-  }, [player, playerId, displayName, onImageLoaded, state.playerImageCache]);
+  }, [loadImage]);
 
-  const handleUploadClick = () => fileInputRef.current?.click();
+  const handleImageError = useCallback(() => {
+    setImageUrl(DEFAULT_PLAYER_IMAGE);
+    setError('Failed to load image');
+  }, []);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
-    if (!file || playerId == null) return;
+    if (!file) return;
+
+    setIsUploading(true);
+    setError(null);
 
     try {
-      const dataUrl = await sportsDBService.processManualUpload(file);
-      sportsDBService.addManualUpload(playerId, dataUrl);
-      dispatch({
-        type: 'UPDATE_PLAYER_IMAGE_CACHE',
-        payload: { playerId, url: dataUrl },
-      });
-      setImageUrl(dataUrl);
+      await sportsDBService.processManualUpload(file);
+      const uploadedUrl = await sportsDBService.addManualUpload(playerId, file);
+      setImageUrl(uploadedUrl);
       setShowUpload(false);
-      setFallbackBroken(false);
-      setIsLoading(false);
-      if (onImageLoaded) onImageLoaded(playerId, dataUrl);
-    } catch (error) {
-      console.error('Manual player image upload failed:', error);
-      window.alert(error.message || 'Could not upload this image.');
+      if (onImageLoaded) onImageLoaded(playerId, uploadedUrl);
+    } catch (err) {
+      console.error('Upload failed:', err);
+      setError(err.message || 'Failed to upload image');
     } finally {
-      event.target.value = '';
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleImageError = () => {
-    setIsLoading(false);
-    if (imageUrl !== DEFAULT_PLAYER_IMAGE) {
-      setImageUrl(DEFAULT_PLAYER_IMAGE);
-      setShowUpload(true);
-    } else {
-      setFallbackBroken(true);
-      setShowUpload(true);
-    }
+  const handleUploadClick = () => {
+    setShowUpload(!showUpload);
   };
 
-  const canUpload = manualUploadEnabled;
+  const sizeClass = getSizeClass();
 
   return (
-    <div
-      className={`player-image-container ${className} ${canUpload ? 'can-upload' : ''}`}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        backgroundColor: '#e2e8f0',
-      }}
-      title={
-        canUpload ? `${displayName}: click to upload a photo` : displayName
-      }
-    >
-      {isLoading && (
-        <div
-          className="loading-placeholder"
-          aria-label="Loading player image"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%)',
-            animation: 'pulse 1.5s infinite',
-          }}
-        />
-      )}
-
-      {!fallbackBroken && (
-        <img
-          src={imageUrl}
-          alt={displayName}
-          loading="lazy"
-          onLoad={() => setIsLoading(false)}
-          onError={handleImageError}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: isLoading ? 0 : 1,
-            transition: 'opacity 0.2s ease',
-          }}
-        />
-      )}
-
-      {fallbackBroken && (
-        <span
-          aria-label={`${displayName} image unavailable`}
-          style={{
-            color: '#475569',
-            fontSize: Math.max(10, size * 0.3),
-            fontWeight: 700,
-          }}
-        >
-          {displayName.charAt(0).toUpperCase()}
-        </span>
-      )}
-
-      {canUpload && (
-        <button
-          type="button"
-          className="upload-overlay"
-          onClick={handleUploadClick}
-          title={`Upload photo for ${displayName}`}
-          aria-label={`Upload photo for ${displayName}`}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            border: 0,
-            padding: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.62)',
-            color: '#fff',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 2,
-            cursor: 'pointer',
-            fontSize: 10,
-            opacity: 0,
-            transition: 'opacity 0.2s ease',
-          }}
-        >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
+    <div className={`player-image-container ${className}`} style={style}>
+      <div className={`player-image-wrapper ${sizeClass}`} style={typeof size === 'number' ? { width: size, height: size } : undefined}>
+        {isLoading ? (
+          <div className="player-image-loading">
+            <div className="player-image-spinner" />
+          </div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={player?.name || 'Player'}
+            className={`player-image ${sizeClass}`}
+            onError={handleImageError}
+            loading="lazy"
+            style={typeof size === 'number' ? { width: size, height: size } : undefined}
+          />
+        )}
+        {actualShowUpload && playerId != null && (
+          <button
+            className="player-image-upload-btn"
+            onClick={handleUploadClick}
+            aria-label="Upload player image"
+            title="Upload custom player image"
+            disabled={isUploading}
           >
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-          </svg>
-          Upload
-        </button>
-      )}
-
-      {manualUploadEnabled && (
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={IMAGE_CONFIG.allowedFileTypes.join(',')}
-          onChange={handleFileChange}
-          aria-label={`Choose image for ${displayName}`}
-          style={{ display: 'none' }}
-        />
+            {isUploading ? '...' : '📷'}
+          </button>
+        )}
+      </div>
+      {showUpload && playerId != null && (
+        <div className="player-image-upload-panel">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            disabled={isUploading}
+            className="player-image-file-input"
+          />
+          {error && <p className="player-image-error">{error}</p>}
+        </div>
       )}
     </div>
   );
+};
+
+PlayerImage.propTypes = {
+  player: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string,
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+  }),
+  size: PropTypes.oneOfType([
+    PropTypes.oneOf(['small', 'medium', 'large', 'x-large']),
+    PropTypes.number,
+  ]),
+  onImageLoaded: PropTypes.func,
+  className: PropTypes.string,
+  showUploadButton: PropTypes.bool,
+  manualUploadEnabled: PropTypes.bool,
+  fallbackUrl: PropTypes.string,
+  style: PropTypes.object,
 };
 
 export default PlayerImage;

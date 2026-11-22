@@ -401,6 +401,71 @@
   margin: 0;
 }
 
+.team-builder-selected-player-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: rgba(var(--color-accent-rgb), 0.05);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-accent);
+  flex-wrap: wrap;
+}
+
+.team-builder-selected-player-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.team-builder-selected-player-name {
+  font-size: clamp(0.875rem, 1.75vw, 1.125rem);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.team-builder-action-button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-semibold);
+  font-size: clamp(0.75rem, 1.2vw, 0.875rem);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  border: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.team-builder-action-button.starting {
+  background: linear-gradient(135deg, var(--color-green-500) 0%, var(--color-green-600) 100%);
+  color: var(--text-inverse);
+}
+
+.team-builder-action-button.starting:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-green-500-rgb), 0.4);
+}
+
+.team-builder-action-button.sub {
+  background: linear-gradient(135deg, var(--color-blue-500) 0%, var(--color-blue-600) 100%);
+  color: var(--text-inverse);
+}
+
+.team-builder-action-button.sub:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-blue-500-rgb), 0.4);
+}
+
+.team-builder-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 1440px) {
   .team-builder {
     padding: var(--spacing-lg);

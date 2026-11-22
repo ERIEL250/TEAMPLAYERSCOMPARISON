@@ -1,18 +1,18 @@
 import axios from 'axios';
 import { getPlayerImageUrl } from '../utils/imageProvider';
 
-// Use local proxy instead of direct API calls to avoid CORS and rate limiting issues
 const SPORTS_DB_PROXY_URL = '/api/searchplayers.php';
+const PLAYER_IMAGES_API_URL = '/api/player-images';
+const FOOTBALL_API_SPORTS_API_URL = '/api/football-api-sports';
 
 export const DEFAULT_PLAYER_IMAGE =
   'https://cdn-icons-png.flaticon.com/512/149/149071.png';
 
 const CONFIG = {
   maxConcurrentRequests: 5,
-  // Optimized delay for better throughput while respecting rate limits
   requestDelay: 500,
   requestTimeout: 15000,
-  maxRetries: 1, // Allow 1 retry for transient failures
+  maxRetries: 1,
   localStorageKey: 'football_player_images',
   maxCacheAge: 7 * 24 * 60 * 60 * 1000,
   maxFileSize: 5 * 1024 * 1024,
@@ -26,8 +26,33 @@ class SportsDBService {
     this.activeRequests = 0;
     this.pendingRequests = new Map();
     this.cachedImages = this.loadCacheFromStorage();
+    this.serverMappings = {};
     this.queueTimer = null;
     this.lastRequestStartedAt = 0;
+    this.loadServerMappings();
+  }
+
+  async loadServerMappings() {
+    try {
+      const response = await axios.get(PLAYER_IMAGES_API_URL);
+      this.serverMappings = response.data || {};
+      this.syncServerMappingsToCache();
+    } catch (error) {
+      console.warn('Could not load server player image mappings:', error);
+    }
+  }
+
+  syncServerMappingsToCache() {
+    Object.entries(this.serverMappings).forEach(([playerId, mapping]) => {
+      if (mapping?.url) {
+        this.cachedImages[playerId] = {
+          url: mapping.url,
+          timestamp: Date.now(),
+          source: 'server',
+        };
+      }
+    });
+    this.saveCacheToStorage();
   }
 
   loadCacheFromStorage() {
@@ -57,22 +82,52 @@ class SportsDBService {
         JSON.stringify(this.cachedImages)
       );
     } catch (error) {
-      // localStorage can fill up, especially when users upload large images.
       console.warn('Could not save player image cache:', error);
     }
   }
 
   getCachedImage(playerId) {
-    return this.cachedImages[String(playerId)]?.url || null;
+    const playerIdStr = String(playerId);
+    const serverMapping = this.serverMappings[playerIdStr];
+    if (serverMapping?.url) {
+      return serverMapping.url;
+    }
+    return this.cachedImages[playerIdStr]?.url || null;
   }
 
-  addManualUpload(playerId, dataUrl) {
-    this.cachedImages[String(playerId)] = {
-      url: dataUrl,
-      timestamp: Date.now(),
-      source: 'manual',
-    };
-    this.saveCacheToStorage();
+  async addManualUpload(playerId, file) {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post(
+        `${PLAYER_IMAGES_API_URL}/${playerId}`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 30000,
+        }
+      );
+
+      if (response.data?.success && response.data.url) {
+        const fullUrl = response.data.url;
+        this.serverMappings[String(playerId)] = {
+          url: fullUrl,
+          uploadedAt: new Date().toISOString(),
+        };
+        this.cachedImages[String(playerId)] = {
+          url: fullUrl,
+          timestamp: Date.now(),
+          source: 'server',
+        };
+        this.saveCacheToStorage();
+        return fullUrl;
+      }
+      throw new Error('Server did not return a valid image URL');
+    } catch (error) {
+      console.error('Failed to upload image to server:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload image to server');
+    }
   }
 
   async processManualUpload(file) {
@@ -84,14 +139,61 @@ class SportsDBService {
     if (file.size > CONFIG.maxFileSize) {
       throw new Error('Image is too large. The maximum file size is 5MB.');
     }
+    return file;
+  }
 
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () =>
-        reject(new Error('Could not read the selected image.'));
-      reader.readAsDataURL(file);
-    });
+  async fetchTeamPlayersFromFootballApiSports(teamId) {
+    try {
+      const cacheKey = `football_api_sports_team_${teamId}`;
+      const cached = this.cachedImages[cacheKey];
+      if (cached?.data) {
+        return cached.data;
+      }
+
+      const response = await axios.get(`${FOOTBALL_API_SPORTS_API_URL}/team-players/${teamId}`);
+      const data = response.data;
+      
+      this.cachedImages[cacheKey] = {
+        data,
+        timestamp: Date.now(),
+        source: 'football_api_sports_team',
+      };
+      this.saveCacheToStorage();
+      
+      return data;
+    } catch (error) {
+      console.warn('Failed to fetch team players from Football API Sports:', error);
+      return null;
+    }
+  }
+
+  async fetchPlayerPhotoFromFootballApiSports(playerId) {
+    try {
+      const cacheKey = `football_api_sports_player_photo_${playerId}`;
+      const cached = this.cachedImages[cacheKey];
+      if (cached?.url) {
+        return cached.url;
+      }
+
+      const response = await axios.get(`${FOOTBALL_API_SPORTS_API_URL}/player-photo/${playerId}`);
+      const data = response.data;
+      
+      if (data?.response?.[0]?.player?.photo) {
+        const photoUrl = data.response[0].player.photo;
+        this.cachedImages[cacheKey] = {
+          url: photoUrl,
+          timestamp: Date.now(),
+          source: 'football_api_sports_photo',
+        };
+        this.saveCacheToStorage();
+        return photoUrl;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Failed to fetch player photo from Football API Sports:', error);
+      return null;
+    }
   }
 
   fetchPlayerImage(player) {
@@ -100,10 +202,26 @@ class SportsDBService {
     }
     const playerId = String(player.id);
 
-    // Check local mapping FIRST - no API call needed!
+    const serverMapping = this.serverMappings[playerId];
+    if (serverMapping?.url) {
+      const fullUrl = serverMapping.url;
+      this.cachedImages[playerId] = {
+        url: fullUrl,
+        timestamp: Date.now(),
+        source: 'server',
+      };
+      this.saveCacheToStorage();
+      return Promise.resolve(fullUrl);
+    }
+
+    const footballApiSportsCacheKey = `football_api_sports_player_photo_${playerId}`;
+    const footballApiSportsPhoto = this.cachedImages[footballApiSportsCacheKey];
+    if (footballApiSportsPhoto?.url) {
+      return Promise.resolve(footballApiSportsPhoto.url);
+    }
+
     const localUrl = getPlayerImageUrl(player);
     if (localUrl && localUrl !== DEFAULT_PLAYER_IMAGE) {
-      // Cache the local URL immediately
       this.cachedImages[playerId] = {
         url: localUrl,
         timestamp: Date.now(),
@@ -163,7 +281,6 @@ class SportsDBService {
         })
         .finally(() => {
           this.activeRequests -= 1;
-          // Process next request after this one completes
           setTimeout(() => this.processQueue(), CONFIG.requestDelay);
         });
     }, wait);
@@ -182,7 +299,6 @@ class SportsDBService {
     let response;
 
     try {
-      // Use local proxy to avoid CORS and rate limiting issues
       response = await axios.get(SPORTS_DB_PROXY_URL, {
         params: { p: name },
         timeout: CONFIG.requestTimeout,
@@ -222,8 +338,6 @@ class SportsDBService {
   }
 
   cacheDefault(playerId) {
-    // Cache "not found" briefly using the normal cache TTL to avoid repeated failing lookups.
-    // Manual uploads always replace this entry and persist for the same TTL.
     this.cachedImages[String(playerId)] = {
       url: DEFAULT_PLAYER_IMAGE,
       timestamp: Date.now(),
