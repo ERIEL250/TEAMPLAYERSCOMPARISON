@@ -13,18 +13,18 @@
   --color-navy-800: #132744;
   --color-navy-700: #1e3a5f;
   
-  --color-green-700: #15803d;
-  --color-green-600: #166534;
-  --color-green-500: #22c55e;
-  --color-green-400: #4ade80;
-  --color-green-300: #86efac;
-  --color-green-200: #bbf7d0;
+  --color-green-700: #059669;
+  --color-green-600: #10b981;
+  --color-green-500: #34d399;
+  --color-green-400: #6ee7b7;
+  --color-green-300: #a7f3d0;
+  --color-green-200: #d1fae5;
   
-  --color-green-700-rgb: 21, 128, 61;
-  --color-green-600-rgb: 22, 101, 52;
-  --color-green-500-rgb: 34, 197, 94;
-  --color-green-400-rgb: 74, 222, 128;
-  --color-green-300-rgb: 134, 239, 172;
+  --color-green-700-rgb: 5, 150, 105;
+  --color-green-600-rgb: 16, 185, 129;
+  --color-green-500-rgb: 52, 211, 153;
+  --color-green-400-rgb: 110, 231, 183;
+  --color-green-300-rgb: 167, 243, 208;
   
   --color-accent-rgb: var(--color-green-500-rgb);
   --color-accent-hover-rgb: var(--color-green-400-rgb);

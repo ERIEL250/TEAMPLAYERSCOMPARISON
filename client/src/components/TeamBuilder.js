@@ -440,6 +440,7 @@ const TeamBuilder = ({
               dragOverSlot={dragOverSlot}
               onPlayerDragStart={handleDragStart}
               onPlayerDragEnd={handleDragEnd}
+              selectedSlot={selectedSlot}
             />
           </div>
 

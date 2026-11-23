@@ -16,7 +16,6 @@ const PlayerImage = ({
   const [imageUrl, setImageUrl] = useState(fallbackUrl || DEFAULT_PLAYER_IMAGE);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
   const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
   const loadTimeoutRef = useRef(null);
@@ -84,7 +83,6 @@ const PlayerImage = ({
       await sportsDBService.processManualUpload(file);
       const uploadedUrl = await sportsDBService.addManualUpload(playerId, file);
       setImageUrl(uploadedUrl);
-      setShowUpload(false);
       if (onImageLoaded) onImageLoaded(playerId, uploadedUrl);
     } catch (err) {
       console.error('Upload failed:', err);
@@ -96,13 +94,15 @@ const PlayerImage = ({
   };
 
   const handleUploadClick = () => {
-    setShowUpload(!showUpload);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const sizeClass = getSizeClass();
 
   return (
-    <div className={`player-image-container ${className}`} style={style}>
+    <div className={`player-image-container ${className} ${actualShowUpload && playerId != null ? 'can-upload' : ''}`} style={style}>
       <div className={`player-image-wrapper ${sizeClass}`} style={typeof size === 'number' ? { width: size, height: size } : undefined}>
         {isLoading ? (
           <div className="player-image-loading">
@@ -120,7 +120,7 @@ const PlayerImage = ({
         )}
         {actualShowUpload && playerId != null && (
           <button
-            className="player-image-upload-btn"
+            className="upload-overlay"
             onClick={handleUploadClick}
             aria-label="Upload player image"
             title="Upload custom player image"
@@ -129,20 +129,17 @@ const PlayerImage = ({
             {isUploading ? '...' : '📷'}
           </button>
         )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleFileChange}
+          disabled={isUploading}
+          className="player-image-file-input"
+          style={{ display: 'none' }}
+        />
       </div>
-      {showUpload && playerId != null && (
-        <div className="player-image-upload-panel">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={handleFileChange}
-            disabled={isUploading}
-            className="player-image-file-input"
-          />
-          {error && <p className="player-image-error">{error}</p>}
-        </div>
-      )}
+      {error && <p className="player-image-error">{error}</p>}
     </div>
   );
 };

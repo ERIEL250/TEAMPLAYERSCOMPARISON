@@ -16,6 +16,7 @@ const FootballPitch = ({
   dragOverSlot,
   onPlayerDragStart,
   onPlayerDragEnd,
+  selectedSlot,
 }) => {
   const formationData = getFormation(formation);
 
@@ -54,11 +55,12 @@ const FootballPitch = ({
         {formationData.positions.map((position) => {
           const player = playerMap.get(position.id) || null;
           const isDragOver = dragOverSlot === position.id;
+          const isSelected = selectedSlot === position.id;
 
           return (
             <div
               key={position.id}
-              className={`pitch-player-slot ${player ? 'filled' : 'empty'} ${isEditable ? 'selectable' : ''} ${isDragOver ? 'drag-over' : ''}`}
+              className={`pitch-player-slot ${player ? 'filled' : 'empty'} ${isEditable ? 'selectable' : ''} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
               style={{
                 left: `${position.x}%`,
                 top: `${position.y}%`,
@@ -120,10 +122,11 @@ const FootballPitch = ({
             const slotId = `sub-${index}`;
             const isDragOver = dragOverSlot === slotId;
 
-            return (
+            const isSubSelected = selectedSlot === slotId;
+          return (
               <div
                 key={slotId}
-                className={`bench-slot ${sub ? 'filled' : 'empty'} ${isEditable ? 'selectable' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                className={`bench-slot ${sub ? 'filled' : 'empty'} ${isEditable ? 'selectable' : ''} ${isDragOver ? 'drag-over' : ''} ${isSubSelected ? 'selected' : ''}`}
                 onClick={() =>
                   isEditable &&
                   onPlayerSelect &&

@@ -11,6 +11,7 @@ import ScoreChart from './components/ScoreChart';
 import DarkModeToggle from './components/DarkModeToggle';
 import LineupPresetManager from './components/LineupPresetManager';
 import ShareLineupButton from './components/ShareLineupButton';
+import Navigation from './components/Navigation';
 import './App.css';
 
 const TeamBuilder = lazy(() => import('./components/TeamBuilder'));
@@ -325,6 +326,8 @@ function App() {
         </div>
       </header>
 
+      <Navigation />
+
       {error && <div className="error-banner">{error}</div>}
 
       <main className="main-content">
@@ -524,6 +527,22 @@ function App() {
 
         {appMode === 'building-team-a' && teamA && (
           <section className="section team-builder-active">
+            <div className="view-navigation">
+              <button
+                className="view-nav-btn"
+                onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'selection' })}
+              >
+                ← Back to Selection
+              </button>
+              {teamB && (
+                <button
+                  className="view-nav-btn secondary"
+                  onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'building-team-b' })}
+                >
+                  Go to Team B Builder →
+                </button>
+              )}
+            </div>
             <Suspense fallback={<LoadingFallback />}>
               <TeamBuilder
                 team={teamA}
@@ -538,6 +557,30 @@ function App() {
 
         {appMode === 'building-team-b' && teamB && (
           <section className="section team-builder-active">
+            <div className="view-navigation">
+              {teamA && (
+                <button
+                  className="view-nav-btn"
+                  onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'building-team-a' })}
+                >
+                  ← Back to Team A Builder
+                </button>
+              )}
+              <button
+                className="view-nav-btn"
+                onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'selection' })}
+              >
+                Back to Selection
+              </button>
+              {teamALineup && teamBLineup && (
+                <button
+                  className="view-nav-btn secondary"
+                  onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'comparing' })}
+                >
+                  Compare Lineups →
+                </button>
+              )}
+            </div>
             <Suspense fallback={<LoadingFallback />}>
               <TeamBuilder
                 team={teamB}
@@ -552,24 +595,52 @@ function App() {
 
         {appMode === 'building-best-xi' && teamA && teamB && (
           <section className="section team-builder-active">
+            <div className="view-navigation">
+              <button
+                className="view-nav-btn"
+                onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'selection' })}
+              >
+                ← Back to Selection
+              </button>
+            </div>
             <Suspense fallback={<LoadingFallback />}>
               <BestXISelector />
             </Suspense>
-            <div className="comparison-actions">
-              <button
-                className="back-to-selection-btn"
-                onClick={() =>
-                  dispatch({ type: 'SET_APP_MODE', payload: 'selection' })
-                }
-              >
-                Back to Team Selection
-              </button>
-            </div>
           </section>
         )}
 
         {appMode === 'comparing' && teamA && teamB && (
           <section className="section comparison-view">
+            <div className="view-navigation">
+              <button
+                className="view-nav-btn"
+                onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'selection' })}
+              >
+                ← Back to Selection
+              </button>
+              {teamA && (
+                <button
+                  className="view-nav-btn"
+                  onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'building-team-a' })}
+                >
+                  Edit Team A
+                </button>
+              )}
+              {teamB && (
+                <button
+                  className="view-nav-btn"
+                  onClick={() => dispatch({ type: 'SET_APP_MODE', payload: 'building-team-b' })}
+                >
+                  Edit Team B
+                </button>
+              )}
+              <button
+                className="view-nav-btn danger"
+                onClick={clearTeamSelection}
+              >
+                New Comparison
+              </button>
+            </div>
             <Suspense fallback={<LoadingFallback />}>
               <LineupComparison
                 teamALineup={teamALineup}
@@ -578,22 +649,6 @@ function App() {
                 teamB={teamB}
               />
             </Suspense>
-            <div className="comparison-actions">
-              <button
-                className="back-to-selection-btn"
-                onClick={() =>
-                  dispatch({ type: 'SET_APP_MODE', payload: 'selection' })
-                }
-              >
-                Back to Team Selection
-              </button>
-              <button
-                className="clear-selection-btn"
-                onClick={clearTeamSelection}
-              >
-                Start New Comparison
-              </button>
-            </div>
           </section>
         )}
 
